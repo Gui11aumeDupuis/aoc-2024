@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter::Map, path::absolute};
+use std::collections::HashMap;
 
 advent_of_code::solution!(1);
 
@@ -9,8 +9,8 @@ pub fn part_one(input: &str) -> Option<u32> {
     right.sort();
 
     let mut sum = 0;
-    for i in 0..left.len() {
-        sum += left[i].abs_diff(right[i]);
+    for (i, v) in left.iter().enumerate() {
+        sum += v.abs_diff(right[i]);
     }
 
     Some(sum)
