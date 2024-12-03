@@ -4,7 +4,7 @@ pub fn part_one(input: &str) -> Option<u32> {
     let reports = deser(input);
     let mut safe_count: u32 = 0;
     for r in reports {
-        if check_report(r) {
+        if check_report(&r) {
             safe_count += 1;
         }
     }
@@ -14,11 +14,24 @@ pub fn part_one(input: &str) -> Option<u32> {
 pub fn part_two(input: &str) -> Option<u32> {
     let reports = deser(input);
     let mut safe_count: u32 = 0;
-
+    for r in reports {
+        if check_report(&r) {
+            safe_count += 1;
+        } else {
+            for i in 0..r.len() {
+                let mut new_r = r.clone();
+                new_r.remove(i);
+                if check_report(&new_r) {
+                    safe_count += 1;
+                    break;
+                }
+            }
+        }
+    }
     Some(safe_count)
 }
 
-fn check_report(r: Vec<i32>) -> bool {
+fn check_report(r: &[i32]) -> bool {
     let mut n = r[0];
     let asc = r[1] > r[0];
     for m in r.iter().skip(1) {
