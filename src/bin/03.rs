@@ -29,7 +29,7 @@ pub fn part_two(input: &str) -> Option<u32> {
 
     let mut dos_i = 0;
     let mut donts_i = 0;
-    // initialize with a do for firsts multiplications
+    // initialize with a do condition for first multiplications
     let mut conditions: Vec<(i32, bool)> = vec![(-1, true)];
 
     for _ in 0..dos.len() + donts.len() {
@@ -57,12 +57,8 @@ pub fn part_two(input: &str) -> Option<u32> {
         .collect();
 
     while i < muls.len() {
-        if muls[i].0 < conditions[j].0 {
-            if j < conditions.len() - 1 {
-                j += 1;
-            }
-            continue;
-        } else if j < conditions.len() - 1 && muls[i].0 > conditions[j + 1].0 {
+        if j < conditions.len() - 1 && muls[i].0 > conditions[j + 1].0 {
+            // the next condition is closer to the multiplication, ignore this one.
             j += 1;
             continue;
         }
