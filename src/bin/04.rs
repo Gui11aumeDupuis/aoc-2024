@@ -49,7 +49,42 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    None
+    let grid = deser(input);
+
+    let height = grid.len();
+    let width = grid[0].len();
+    let mut count = 0;
+
+    for y in 1..height - 1 {
+        for x in 1..width - 1 {
+            if grid[x][y] != 'A' {
+                continue;
+            }
+
+            let tl = grid[x - 1][y - 1];
+            let tr = grid[x + 1][y - 1];
+            let bl = grid[x - 1][y + 1];
+            let br = grid[x + 1][y + 1];
+
+            if is_mas_diagonal(tl, br) && is_mas_diagonal(tr, bl) {
+                count += 1;
+            }
+        }
+    }
+
+    Some(count)
+}
+
+fn is_mas_diagonal(a: char, b: char) -> bool {
+    if a == 'M' || a == 'S' {
+        let expected = if a == 'M' { 'S' } else { 'M' };
+        if b != expected {
+            return false;
+        }
+        return true;
+    }
+
+    false
 }
 
 fn deser(input: &str) -> Vec<Vec<char>> {
@@ -77,6 +112,6 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(9));
     }
 }
