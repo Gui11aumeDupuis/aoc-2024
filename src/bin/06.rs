@@ -1,11 +1,11 @@
-use std::ops::Add;
+use std::{collections::HashMap, ops::Add};
 
 advent_of_code::solution!(6);
 
 pub fn part_one(input: &str) -> Option<u32> {
     let mut chars = deser(input);
 
-    let mut lab = Lab { grid: &mut chars };
+    let mut lab = Lab::new(&mut chars);
     let mut guard = lab.find_gard()?;
 
     lab.modify(&guard.pos, 'X');
@@ -13,7 +13,6 @@ pub fn part_one(input: &str) -> Option<u32> {
 
     while guard.in_bound(&lab) {
         let next_pos = guard.get_next_pos();
-
         let step_val = lab.get(&next_pos);
 
         if step_val == '#' {
@@ -31,7 +30,37 @@ pub fn part_one(input: &str) -> Option<u32> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    None
+    let mut chars = deser(input);
+
+    let mut lab = Lab::new(&mut chars);
+    let mut guard = lab.find_gard()?;
+
+    let mut added_obs = 0;
+
+    while guard.in_bound(&lab) {
+        let next_pos = guard.get_next_pos();
+        let step_val = lab.get(&next_pos);
+
+        if lab.obstacle_in_front_would_cause_loop(&guard) {
+            added_obs += 1;
+        }
+
+        if step_val == '#' {
+            if let Some(visits) = lab
+                .obstructions
+                .get_mut(&(next_pos.x as usize, next_pos.y as usize))
+            {
+                visits.add_visit(&guard.dir);
+            }
+            guard.change_direction();
+        } else {
+            lab.modify(&next_pos, 'X');
+            guard.make_step();
+            lab.print();
+        }
+    }
+
+    Some(added_obs)
 }
 
 fn deser(input: &str) -> Vec<Vec<char>> {
@@ -49,9 +78,60 @@ fn deser(input: &str) -> Vec<Vec<char>> {
 
 struct Lab<'a> {
     grid: &'a mut [Vec<char>],
+    obs_per_row: Vec<Vec<usize>>,
+    obs_per_col: Vec<Vec<usize>>,
+    obstructions: HashMap<(usize, usize), ObstructionVisits>,
 }
 
 impl<'a> Lab<'a> {
+    fn new(grid: &'a mut [Vec<char>]) -> Self {
+        let width = grid[0].len();
+        let height = grid.len();
+        let mut obstructions = HashMap::new();
+
+        let mut obs_per_row = Vec::<Vec<usize>>::new();
+        for y in 0..height {
+            let mut horz_obs = Vec::new();
+            for x in 0..width {
+                if grid[y][x] == '#' {
+                    horz_obs.push(x);
+                    obstructions
+                        .entry((x, y))
+                        .or_insert(ObstructionVisits::new());
+                }
+            }
+            obs_per_row.push(horz_obs)
+        }
+
+        let mut obs_per_col = Vec::<Vec<usize>>::new();
+        for x in 0..width {
+            let mut vert_obs = vec![];
+            for y in 0..height {
+                if grid[y][x] == '#' {
+                    vert_obs.push(y);
+                }
+            }
+            obs_per_col.push(vert_obs)
+        }
+
+        Self {
+            grid,
+            obs_per_row,
+            obs_per_col,
+            obstructions,
+        }
+    }
+
+    fn print(&self) {
+        println!();
+        for row in self.grid.iter() {
+            for c in row {
+                print!("{}", c);
+            }
+            println!();
+        }
+    }
+
     fn width(&self) -> usize {
         self.grid[0].len()
     }
@@ -84,6 +164,54 @@ impl<'a> Lab<'a> {
     fn get(&self, pos: &Pos) -> char {
         self.grid[pos.y as usize][pos.x as usize]
     }
+
+    fn obstacle_in_front_would_cause_loop(&mut self, guard: &Guard) -> bool {
+        // find the obstacle to right of guard (based on direction)
+        let front = guard.get_next_pos();
+        let guard_x = front.x as usize;
+        let guard_y = front.y as usize;
+        let obs = match guard.get_next_dir() {
+            Direction::Left => match self.obs_per_row[guard_y]
+                .iter()
+                .rev()
+                .position(|el| *el > guard_x)
+            {
+                Some(x) => (self.obs_per_row[guard_y].len() - 1 - x, guard_y),
+                None => return false,
+            },
+            Direction::Right => match self.obs_per_row[guard_y]
+                .iter()
+                .position(|el| guard_x > *el)
+            {
+                Some(x) => (x, guard_y),
+                None => return false,
+            },
+            Direction::Up => match self.obs_per_col[guard_x]
+                .iter()
+                .rev()
+                .position(|el| *el > guard_y)
+            {
+                Some(y) => (self.obs_per_col[guard_x].len() - 1 - y, guard_x),
+                None => return false,
+            },
+
+            Direction::Down => match self.obs_per_col[guard_x]
+                .iter()
+                .position(|el| guard_y > *el)
+            {
+                Some(y) => (guard_x, y),
+                None => return false,
+            },
+        };
+
+        if let Some(visits) = self.obstructions.get_mut(&obs) {
+            if visits.was_visited(&guard.get_next_dir()) {
+                return true;
+            }
+        }
+
+        false
+    }
 }
 
 struct Guard {
@@ -93,11 +221,15 @@ struct Guard {
 
 impl Guard {
     fn change_direction(&mut self) {
+        self.dir = self.get_next_dir();
+    }
+
+    fn get_next_dir(&self) -> Direction {
         match self.dir {
-            Direction::Left => self.dir = Direction::Up,
-            Direction::Right => self.dir = Direction::Down,
-            Direction::Up => self.dir = Direction::Right,
-            Direction::Down => self.dir = Direction::Left,
+            Direction::Left => Direction::Up,
+            Direction::Right => Direction::Down,
+            Direction::Up => Direction::Right,
+            Direction::Down => Direction::Left,
         }
     }
 
@@ -153,6 +285,41 @@ impl Direction {
             Direction::Right => Pos { x: 1, y: 0 },
             Direction::Up => Pos { x: 0, y: -1 },
             Direction::Down => Pos { x: 0, y: 1 },
+        }
+    }
+}
+
+struct ObstructionVisits {
+    left: bool,
+    right: bool,
+    up: bool,
+    down: bool,
+}
+
+impl ObstructionVisits {
+    fn new() -> Self {
+        Self {
+            left: false,
+            right: false,
+            up: false,
+            down: false,
+        }
+    }
+    fn add_visit(&mut self, dir: &Direction) {
+        match dir {
+            Direction::Left => self.left = true,
+            Direction::Right => self.right = true,
+            Direction::Up => self.up = true,
+            Direction::Down => self.down = true,
+        }
+    }
+
+    fn was_visited(&self, dir: &Direction) -> bool {
+        match dir {
+            Direction::Left => self.left,
+            Direction::Right => self.right,
+            Direction::Up => self.up,
+            Direction::Down => self.down,
         }
     }
 }
