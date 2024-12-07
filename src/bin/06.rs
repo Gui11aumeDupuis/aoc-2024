@@ -42,9 +42,12 @@ pub fn part_two(input: &str) -> Option<u32> {
         let step_val = lab.get(&next_pos);
 
         if step_val != '#' {
-            lab.modify(&next_pos, 'X');
+            if step_val != 'X' {
+                lab.modify(&next_pos, 'X');
+            }
             if lab.obstacle_in_front_would_cause_loop(&guard) {
                 added_obs += 1;
+                lab.modify(&next_pos, 'O');
             }
             guard.make_step();
         } else {
@@ -58,6 +61,7 @@ pub fn part_two(input: &str) -> Option<u32> {
         }
     }
 
+    lab.print();
     Some(added_obs)
 }
 
@@ -190,7 +194,7 @@ impl<'a> Lab<'a> {
             {
                 Some(i) => {
                     let idx = self.obs_per_col[guard_x].len() - 1 - i;
-                    (self.obs_per_col[guard_x][idx], guard_y)
+                    (guard_x, self.obs_per_col[guard_x][idx])
                 }
                 None => return false,
             },
