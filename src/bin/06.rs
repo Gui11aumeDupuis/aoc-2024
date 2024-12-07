@@ -41,11 +41,13 @@ pub fn part_two(input: &str) -> Option<u32> {
         let next_pos = guard.get_next_pos();
         let step_val = lab.get(&next_pos);
 
-        if lab.obstacle_in_front_would_cause_loop(&guard) {
-            added_obs += 1;
-        }
-
-        if step_val == '#' {
+        if step_val != '#' {
+            lab.modify(&next_pos, 'X');
+            if lab.obstacle_in_front_would_cause_loop(&guard) {
+                added_obs += 1;
+            }
+            guard.make_step();
+        } else {
             if let Some(visits) = lab
                 .obstructions
                 .get_mut(&(next_pos.x as usize, next_pos.y as usize))
@@ -53,10 +55,6 @@ pub fn part_two(input: &str) -> Option<u32> {
                 visits.add_visit(&guard.dir);
             }
             guard.change_direction();
-        } else {
-            lab.modify(&next_pos, 'X');
-            guard.make_step();
-            lab.print();
         }
     }
 
@@ -167,39 +165,38 @@ impl<'a> Lab<'a> {
 
     fn obstacle_in_front_would_cause_loop(&mut self, guard: &Guard) -> bool {
         // find the obstacle to right of guard (based on direction)
-        let front = guard.get_next_pos();
-        let guard_x = front.x as usize;
-        let guard_y = front.y as usize;
+        let guard_x = guard.pos.x as usize;
+        let guard_y = guard.pos.y as usize;
         let obs = match guard.get_next_dir() {
             Direction::Left => match self.obs_per_row[guard_y]
                 .iter()
                 .rev()
-                .position(|el| *el > guard_x)
+                .position(|el| *el < guard_x)
             {
-                Some(x) => (self.obs_per_row[guard_y].len() - 1 - x, guard_y),
+                Some(i) => {
+                    let idx = self.obs_per_row[guard_y].len() - 1 - i;
+                    (self.obs_per_row[guard_y][idx], guard_y)
+                }
                 None => return false,
             },
-            Direction::Right => match self.obs_per_row[guard_y]
-                .iter()
-                .position(|el| guard_x > *el)
-            {
-                Some(x) => (x, guard_y),
+            Direction::Right => match self.obs_per_row[guard_y].iter().find(|el| **el > guard_x) {
+                Some(x) => (*x, guard_y),
                 None => return false,
             },
             Direction::Up => match self.obs_per_col[guard_x]
                 .iter()
                 .rev()
-                .position(|el| *el > guard_y)
+                .position(|el| *el < guard_y)
             {
-                Some(y) => (self.obs_per_col[guard_x].len() - 1 - y, guard_x),
+                Some(i) => {
+                    let idx = self.obs_per_col[guard_x].len() - 1 - i;
+                    (self.obs_per_col[guard_x][idx], guard_y)
+                }
                 None => return false,
             },
 
-            Direction::Down => match self.obs_per_col[guard_x]
-                .iter()
-                .position(|el| guard_y > *el)
-            {
-                Some(y) => (guard_x, y),
+            Direction::Down => match self.obs_per_col[guard_x].iter().find(|el| **el > guard_y) {
+                Some(y) => (guard_x, *y),
                 None => return false,
             },
         };
@@ -337,6 +334,6 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(6));
     }
 }
